@@ -1,6 +1,5 @@
 package com.bhatman.astra;
 
-import java.nio.file.Paths;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,47 +16,57 @@ import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.DriverExecutionProfile;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
-import com.datastax.oss.driver.api.querybuilder.SchemaBuilder;
 
 public class App {
 
 	private static Logger LOGGER = LoggerFactory.getLogger(App.class);
 
-	private static final String SCB_ORIGIN = "/path/to/scb/scb-origin.zip";
-	private static final String SCB_TARGET = "/path/to/scb/scb-target.zip";
-	private static final String CLIENT_ID = "xxx";
-	private static final String SECRET = "yyy";
+	private static final String SCB_ORIGIN = "/Users/pravin.bhat/code/github/pravinbhat/learn/hello-dsbulk/secure-connect-petclinic.zip";
+	private static final String SCB_TARGET = "/Users/pravin.bhat/code/github/pravinbhat/learn/hello-dsbulk/secure-connect-petclinic-us-west-2.zip";
 
-	private static final String KEYSPACE_NAME = "test_ks";
-	private static final String LATENCY_TABLE = "LATENCY_CHECK";
-	private static final int NUM_OF_ROWS = 50;
+	private static final int NUM_OF_ROWS = 1000;
 	private static PreparedStatement stmtInsertRecord;
 
 	private CqlSession session;
 	public String dcName;
-	private PreparedStatement findDC;
 	private PreparedStatement findRecords;
 
-	public static void main(String[] args) {
+	public App(String scbPath) {
+		super();
+		session = AppUtil.getCQLSession(scbPath);
+		dcName = AppUtil.getDCName(session);
+		LOGGER.info("{}: Connected!", dcName);
+		AppUtil.createLatencyTableIfNotExists(session, dcName);
+		findRecords = session.prepare(QueryBuilder.selectFrom(AppUtil.LATENCY_TABLE).all().build());
+	}
 
+	public static void main(String[] args) {
+		performLatencyCheck(DefaultConsistencyLevel.EACH_QUORUM);
+		performLatencyCheck(DefaultConsistencyLevel.LOCAL_QUORUM);
+	}
+
+	public static void performLatencyCheck(DefaultConsistencyLevel consistencyLevel) {
+		LOGGER.info(
+				"====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ======================",
+				consistencyLevel);
 		App originApp = new App(SCB_ORIGIN);
 		App targetApp = new App(SCB_TARGET);
 
-		originApp.writeRecordsAsync(NUM_OF_ROWS);
+		long testStartTime = Calendar.getInstance().getTimeInMillis();
+		LOGGER.info("{}: Test Started at: {}", testStartTime);
+		originApp.writeRecordsAsync(NUM_OF_ROWS, consistencyLevel);
 
 		Map<Integer, Long> originRecordTimestamp = new HashMap<>();
 		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
 
 		CompletionStage<AsyncResultSet> targetRespFuture = targetApp.readRecordsAsync(NUM_OF_ROWS,
-				targetRecordTimestamp, 0);
-		originApp.readRecordsAsync(NUM_OF_ROWS, originRecordTimestamp, 0);
+				targetRecordTimestamp, 0, testStartTime);
+		originApp.readRecordsAsync(NUM_OF_ROWS, originRecordTimestamp, 0, testStartTime);
 
 		try {
-			TimeUnit.SECONDS.sleep(1);
+			TimeUnit.SECONDS.sleep(2);
 		} catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
 		}
@@ -68,37 +77,30 @@ public class App {
 				Long v = es.getValue();
 				long targetVal = targetRecordTimestamp.get(k);
 				long observedLatency = targetVal - v;
-				LOGGER.info("Found key {}: with {}:{} timestamps {}:{} and Observed latency: {}", k, originApp.dcName,
+				LOGGER.trace("Found key {}: with {}:{} timestamps {}:{} and Observed latency: {}", k, originApp.dcName,
 						targetApp.dcName, v, targetVal, observedLatency);
 				return observedLatency;
 			}).reduce(0l, Long::sum);
+			AppUtil.closeSession(originApp.session, originApp.dcName);
+			AppUtil.closeSession(targetApp.session, targetApp.dcName);
 
-			LOGGER.info("Total latency between regions: {}", totLatency);
-			LOGGER.info("Average latency between regions: {}", (totLatency / NUM_OF_ROWS));
-
-			originApp.closeSession();
-			targetApp.closeSession();
+			LOGGER.info(
+					"=================== Total Latency: {}, AVG Latency: {}, Rowcount: {}, ConsistencyLevel: {} =========================== ",
+					totLatency, (totLatency / NUM_OF_ROWS), NUM_OF_ROWS, consistencyLevel);
 		});
 	}
 
-	public App(String scbPath) {
-		super();
-		session = getCQLSession(scbPath);
-		findDC = session.prepare(QueryBuilder.selectFrom("SYSTEM", "LOCAL").all().build());
-		dcName = getDCName();
-		LOGGER.info("{}: Connected!", dcName);
-		createLatencyTableIfNotExists(session);
-		findRecords = session.prepare(QueryBuilder.selectFrom(LATENCY_TABLE).all().build());
-	}
-
 	private CompletionStage<AsyncResultSet> readRecordsAsync(int count, Map<Integer, Long> recordTimestamp,
-			int rowCount) {
+			int rowCount, long testStartTime) {
 		LOGGER.info("{}: Looking for rows...", dcName);
 		CompletionStage<AsyncResultSet> respFuture = session.executeAsync(findRecords.bind());
-		return respFuture.whenComplete((nrs, err) -> {
+		return respFuture.whenCompleteAsync((nrs, err) -> {
 			int newRowCount = processRows(nrs, err, rowCount, recordTimestamp);
 			if (newRowCount < count) {
-				readRecordsAsync(count, recordTimestamp, newRowCount);
+				readRecordsAsync(count, recordTimestamp, newRowCount, testStartTime);
+			} else {
+				LOGGER.info("{}: Test completed in: {}ms", dcName,
+						(Calendar.getInstance().getTimeInMillis() - testStartTime));
 			}
 		});
 	}
@@ -124,51 +126,21 @@ public class App {
 		return rowCount;
 	}
 
-	private void writeRecordsAsync(int i) {
+	private void writeRecordsAsync(int i, DefaultConsistencyLevel consistencyLevel) {
 		if (null == stmtInsertRecord) {
-			stmtInsertRecord = session.prepare(QueryBuilder.insertInto(LATENCY_TABLE)
+			stmtInsertRecord = session.prepare(QueryBuilder.insertInto(AppUtil.LATENCY_TABLE)
 					.value("id", QueryBuilder.bindMarker()).value("key", QueryBuilder.bindMarker())
 					.value("value", QueryBuilder.bindMarker()).value("description", QueryBuilder.bindMarker()).build());
 		}
 
 		DriverExecutionProfile defaultProfile = session.getContext().getConfig().getDefaultProfile();
 		DriverExecutionProfile dynamicProfile = defaultProfile.withString(DefaultDriverOption.REQUEST_CONSISTENCY,
-				// DefaultConsistencyLevel.EACH_QUORUM.name());
-				DefaultConsistencyLevel.LOCAL_QUORUM.name());
+				consistencyLevel.name());
 		IntStream.range(0, i).forEach(idx -> {
-			session.executeAsync(
-					stmtInsertRecord.bind(idx, LATENCY_TABLE, "Row: " + idx, "This is a multi-region latency check!")
-							.setExecutionProfile(dynamicProfile));
+			session.executeAsync(stmtInsertRecord
+					.bind(idx, AppUtil.LATENCY_TABLE, "Row: " + idx, "This is a multi-region latency check!")
+					.setExecutionProfile(dynamicProfile));
 		});
 	}
 
-	public CqlSession getCQLSession(String scbPath) {
-		CqlSession cqlSession = CqlSession.builder().withCloudSecureConnectBundle(Paths.get(scbPath))
-				.withAuthCredentials(CLIENT_ID, SECRET).withKeyspace(KEYSPACE_NAME).build();
-
-		return cqlSession;
-	}
-
-	public void closeSession() {
-		if (session != null) {
-			session.execute(QueryBuilder.truncate(LATENCY_TABLE).build());
-			LOGGER.info("{}: Table '{}' has been truncated!", dcName, LATENCY_TABLE);
-			session.close();
-		}
-		LOGGER.info("{}: Closed connection!", dcName);
-	}
-
-	public String getDCName() {
-		ResultSet rs = session.execute(findDC.bind());
-		Row record = rs.one();
-
-		return (null != record) ? record.getString("data_center") : "";
-	}
-
-	public void createLatencyTableIfNotExists(CqlSession session) {
-		session.execute(SchemaBuilder.createTable(LATENCY_TABLE).ifNotExists().withPartitionKey("id", DataTypes.INT)
-				.withColumn("key", DataTypes.TEXT).withColumn("value", DataTypes.TEXT)
-				.withColumn("description", DataTypes.TEXT).build());
-		LOGGER.info("{}: Table '{}' has been created (if not exists).", dcName, LATENCY_TABLE);
-	}
 }
