@@ -29,30 +29,37 @@ public class App {
 
 	private static final int NUM_OF_ROWS = 1000;
 	private static PreparedStatement stmtInsertRecord;
+	private static Select select = QueryBuilder.selectFrom(AppUtil.LATENCY_TABLE).column("key").whereColumn("id")
+			.isEqualTo(QueryBuilder.bindMarker());
 
 	private CqlSession session;
 	public String dcName;
 	private PreparedStatement findRecords;
+	DriverExecutionProfile dynamicProfile;
 
-	public App(String scbPath) {
+	public App(String scbPath, DefaultConsistencyLevel consistencyLevel) {
 		super();
 		session = AppUtil.getCQLSession(scbPath);
 		dcName = AppUtil.getDCName(session);
 		LOGGER.info("{}: Connected!", dcName);
 		AppUtil.createLatencyTableIfNotExists(session, dcName);
-		Select select = QueryBuilder.selectFrom(AppUtil.LATENCY_TABLE).column("key").whereColumn("id").isEqualTo(QueryBuilder.bindMarker());
+		stmtInsertRecord = session.prepare(QueryBuilder.insertInto(AppUtil.LATENCY_TABLE)
+				.value("id", QueryBuilder.bindMarker()).value("key", QueryBuilder.bindMarker())
+				.value("value", QueryBuilder.bindMarker()).value("description", QueryBuilder.bindMarker()).build());
 		findRecords = session.prepare(select.build());
+		DriverExecutionProfile defaultProfile = session.getContext().getConfig().getDefaultProfile();
+		dynamicProfile = defaultProfile.withString(DefaultDriverOption.REQUEST_CONSISTENCY, consistencyLevel.name());
 	}
 
 	public static void main(String[] args) {
 		performLatencyCheck(DefaultConsistencyLevel.EACH_QUORUM);
-		
+
 		try {
 			TimeUnit.SECONDS.sleep(1);
 		} catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
 		}
-		
+
 		performLatencyCheck(DefaultConsistencyLevel.LOCAL_QUORUM);
 	}
 
@@ -60,12 +67,12 @@ public class App {
 		LOGGER.info(
 				"====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ======================",
 				consistencyLevel);
-		App originApp = new App(SCB_ORIGIN);
-		App targetApp = new App(SCB_TARGET);
+		App originApp = new App(SCB_ORIGIN, consistencyLevel);
+		App targetApp = new App(SCB_TARGET, consistencyLevel);
 
 		long testStartTime = Calendar.getInstance().getTimeInMillis();
 		LOGGER.info("Test Started at: {}", testStartTime);
-		originApp.writeRecordsAsync(NUM_OF_ROWS, consistencyLevel);
+		originApp.writeRecordsAsync(NUM_OF_ROWS);
 
 		Map<Integer, Long> originRecordTimestamp = new HashMap<>();
 		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
@@ -99,19 +106,9 @@ public class App {
 		});
 	}
 
-	private void writeRecordsAsync(int i, DefaultConsistencyLevel consistencyLevel) {
-		if (null == stmtInsertRecord) {
-			stmtInsertRecord = session.prepare(QueryBuilder.insertInto(AppUtil.LATENCY_TABLE)
-					.value("id", QueryBuilder.bindMarker()).value("key", QueryBuilder.bindMarker())
-					.value("value", QueryBuilder.bindMarker()).value("description", QueryBuilder.bindMarker()).build());
-		}
-
-		DriverExecutionProfile defaultProfile = session.getContext().getConfig().getDefaultProfile();
-		DriverExecutionProfile dynamicProfile = defaultProfile.withString(DefaultDriverOption.REQUEST_CONSISTENCY,
-				consistencyLevel.name());
+	private void writeRecordsAsync(int i) {
 		IntStream.range(0, i).forEach(idx -> {
-			session.executeAsync(stmtInsertRecord
-					.bind(1, idx, "Row: " + idx, "This is a multi-region latency check!")
+			session.executeAsync(stmtInsertRecord.bind(1, idx, "Row: " + idx, "This is a multi-region latency check!")
 					.setExecutionProfile(dynamicProfile));
 		});
 	}
@@ -119,7 +116,8 @@ public class App {
 	private CompletionStage<AsyncResultSet> readRecordsAsync(int count, Map<Integer, Long> recordTimestamp,
 			int rowCount, long testStartTime) {
 		LOGGER.info("{}: Looking for rows...", dcName);
-		CompletionStage<AsyncResultSet> respFuture = session.executeAsync(findRecords.bind(1));
+		CompletionStage<AsyncResultSet> respFuture = session
+				.executeAsync(findRecords.bind(1).setExecutionProfile(dynamicProfile));
 		return respFuture.whenCompleteAsync((nrs, err) -> {
 			int newRowCount = processRows(nrs, err, rowCount, recordTimestamp);
 			if (newRowCount < count) {
