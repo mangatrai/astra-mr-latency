@@ -50,7 +50,7 @@ public class AppUtil {
 
 	public static void createLatencyTableIfNotExists(CqlSession session, String dcName) {
 		session.execute(SchemaBuilder.createTable(LATENCY_TABLE).ifNotExists().withPartitionKey("id", DataTypes.INT)
-				.withColumn("key", DataTypes.TEXT).withColumn("value", DataTypes.TEXT)
+				.withClusteringColumn("key", DataTypes.INT).withColumn("value", DataTypes.TEXT)
 				.withColumn("description", DataTypes.TEXT).build());
 		LOGGER.info("{}: Table '{}' has been created (if not exists).", dcName, LATENCY_TABLE);
 	}
