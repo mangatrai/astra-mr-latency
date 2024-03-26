@@ -24,8 +24,8 @@ public class App {
 
 	private static Logger LOGGER = LoggerFactory.getLogger(App.class);
 
-	private static final String SCB_ORIGIN = "/Users/pravin.bhat/code/github/pravinbhat/learn/hello-dsbulk/secure-connect-petclinic.zip";
-	private static final String SCB_TARGET = "/Users/pravin.bhat/code/github/pravinbhat/learn/hello-dsbulk/secure-connect-petclinic-us-west-2.zip";
+	private static final String SCB_ORIGIN = "/path/to/scb/scb-origin.zip";
+	private static final String SCB_TARGET = "/path/to/scb/scb-target.zip";
 
 	private static final int NUM_OF_ROWS = 1000;
 	private static PreparedStatement stmtInsertRecord;

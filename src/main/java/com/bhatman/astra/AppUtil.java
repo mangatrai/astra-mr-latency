@@ -17,8 +17,8 @@ public class AppUtil {
 	private static Logger LOGGER = LoggerFactory.getLogger(AppUtil.class);
 
 
-	private static final String CLIENT_ID = "ntRECwopxDYoFIcRKcRMdETi";
-	private static final String SECRET = "CLxr0zZAQ.cWTcKQCBw7,a0B5SeCKNfyUyNZwB-C_dNdCeKtrqjQWW9MSBnnLya2XhL4ds8tHIsP7ny,0UHmLPC9NRMA91BHNyM2C36w_ucd9XeyYuwI_83mT,eDNuFi";
+	private static final String CLIENT_ID = "xxx";
+	private static final String SECRET = "yyy";
 
 	public static final String KEYSPACE_NAME = "test_ks";
 	public static final String LATENCY_TABLE = "LATENCY_CHECK";
