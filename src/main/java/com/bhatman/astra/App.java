@@ -51,19 +51,12 @@ public class App {
 		dynamicProfile = defaultProfile.withString(DefaultDriverOption.REQUEST_CONSISTENCY, consistencyLevel.name());
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
 		performLatencyCheck(DefaultConsistencyLevel.EACH_QUORUM);
-
-		try {
-			TimeUnit.SECONDS.sleep(1);
-		} catch (InterruptedException ie) {
-			Thread.currentThread().interrupt();
-		}
-
 		performLatencyCheck(DefaultConsistencyLevel.LOCAL_QUORUM);
 	}
 
-	public static void performLatencyCheck(DefaultConsistencyLevel consistencyLevel) {
+	public static void performLatencyCheck(DefaultConsistencyLevel consistencyLevel) throws InterruptedException {
 		LOGGER.info(
 				"====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ======================",
 				consistencyLevel);
@@ -78,32 +71,28 @@ public class App {
 		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
 
 		originApp.readRecordsAsync(NUM_OF_ROWS, originRecordTimestamp, 0, testStartTime);
-		CompletionStage<AsyncResultSet> targetRespFuture = targetApp.readRecordsAsync(NUM_OF_ROWS,
-				targetRecordTimestamp, 0, testStartTime);
+		targetApp.readRecordsAsync(NUM_OF_ROWS, targetRecordTimestamp, 0, testStartTime);
 
-		try {
-			TimeUnit.SECONDS.sleep(1);
-		} catch (InterruptedException ie) {
-			Thread.currentThread().interrupt();
+		while (!targetRecordTimestamp.containsKey(NUM_OF_ROWS-1)) {
+			TimeUnit.MILLISECONDS.sleep(100);
+			LOGGER.info("Test waiting to complete...");
 		}
 
-		targetRespFuture.whenComplete((nrs, err) -> {
-			final Long totLatency = originRecordTimestamp.entrySet().stream().map(es -> {
-				Integer k = es.getKey();
-				Long v = es.getValue();
-				long targetVal = targetRecordTimestamp.get(k);
-				long observedLatency = targetVal - v;
-				LOGGER.trace("Found key {}: with {}:{} timestamps {}:{} and Observed latency: {}", k, originApp.dcName,
-						targetApp.dcName, v, targetVal, observedLatency);
-				return observedLatency;
-			}).reduce(0l, Long::sum);
-			AppUtil.closeSession(originApp.session, originApp.dcName);
-			AppUtil.closeSession(targetApp.session, targetApp.dcName);
+		final Long totLatency = originRecordTimestamp.entrySet().stream().map(es -> {
+			Integer k = es.getKey();
+			Long v = es.getValue();
+			long targetVal = targetRecordTimestamp.get(k);
+			long observedLatency = targetVal - v;
+			LOGGER.trace("Found key {}: with {}:{} timestamps {}:{} and Observed latency: {}", k, originApp.dcName,
+					targetApp.dcName, v, targetVal, observedLatency);
+			return observedLatency;
+		}).reduce(0l, Long::sum);
+		AppUtil.closeSession(originApp.session, originApp.dcName);
+		AppUtil.closeSession(targetApp.session, targetApp.dcName);
 
-			LOGGER.info(
-					"=================== Total Latency: {}, AVG Latency: {}, Rowcount: {}, ConsistencyLevel: {} =========================== ",
-					totLatency, (totLatency / NUM_OF_ROWS), NUM_OF_ROWS, consistencyLevel);
-		});
+		LOGGER.info(
+				"=================== Total Latency: {}, AVG Latency: {}, Rowcount: {}, ConsistencyLevel: {} =========================== ",
+				totLatency, (totLatency / NUM_OF_ROWS), NUM_OF_ROWS, consistencyLevel);
 	}
 
 	private void writeRecordsAsync(int i) {
