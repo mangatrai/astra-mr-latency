@@ -15,7 +15,7 @@ App to help check latencies between AstraDB regions (for Multi-Region (MR) Apps 
 - Add secure-connect-bundle (SCB) details for the two Astra regions
 - Provide the Astra Client_ID for the Multi-Region (MR) DB
 - Provide the Astra SECRET for the MR DB
-- Run command `java -jar target/astra-mr-latency-0.0.1-SNAPSHOT-jar-with-dependencies.jar`
+- Run command `java -jar target/astra-mr-latency-1.0.1-jar-with-dependencies.jar`
 
 ## Sample Output
 ```
