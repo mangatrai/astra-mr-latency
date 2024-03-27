@@ -61,30 +61,32 @@ public class App {
 				"====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ======================",
 				consistencyLevel);
 		App originApp = new App(SCB_ORIGIN, consistencyLevel);
+		Map<Integer, Long> originRecordTimestamp = new HashMap<>();
+
 		App targetApp = new App(SCB_TARGET, consistencyLevel);
+		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
 
 		long testStartTime = Calendar.getInstance().getTimeInMillis();
 		LOGGER.info("Test Started at: {}", testStartTime);
 		originApp.writeRecordsAsync(NUM_OF_ROWS);
 
-		Map<Integer, Long> originRecordTimestamp = new HashMap<>();
-		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
 
 		originApp.readRecordsAsync(NUM_OF_ROWS, originRecordTimestamp, 0, testStartTime);
 		targetApp.readRecordsAsync(NUM_OF_ROWS, targetRecordTimestamp, 0, testStartTime);
 
 		while (!targetRecordTimestamp.containsKey(NUM_OF_ROWS-1)) {
-			TimeUnit.MILLISECONDS.sleep(100);
-			LOGGER.info("Test waiting to complete...");
+			TimeUnit.MILLISECONDS.sleep(50);
+			LOGGER.trace("Waiting for MR Latency check to complete...");
 		}
+		TimeUnit.MILLISECONDS.sleep(50); // Sometimes the HashMap is not fully loaded resulting in NPE
 
 		final Long totLatency = originRecordTimestamp.entrySet().stream().map(es -> {
-			Integer k = es.getKey();
-			Long v = es.getValue();
-			long targetVal = targetRecordTimestamp.get(k);
-			long observedLatency = targetVal - v;
-			LOGGER.trace("Found key {}: with {}:{} timestamps {}:{} and Observed latency: {}", k, originApp.dcName,
-					targetApp.dcName, v, targetVal, observedLatency);
+			Integer key = es.getKey();
+			Long val = es.getValue();
+			long targetVal = targetRecordTimestamp.get(key);
+			long observedLatency = targetVal - val;
+			LOGGER.trace("Found key {}: in regions {}:{} at timestamps {}:{} with observed latency: {}", key, originApp.dcName,
+					targetApp.dcName, val, targetVal, observedLatency);
 			return observedLatency;
 		}).reduce(0l, Long::sum);
 		AppUtil.closeSession(originApp.session, originApp.dcName);

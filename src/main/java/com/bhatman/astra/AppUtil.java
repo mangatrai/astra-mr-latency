@@ -33,8 +33,6 @@ public class AppUtil {
 
 	public static void closeSession(CqlSession session, String dcName) {
 		if (session != null) {
-			session.execute(QueryBuilder.truncate(LATENCY_TABLE).build());
-			LOGGER.info("{}: Table '{}' has been truncated!", dcName, LATENCY_TABLE);
 			session.close();
 		}
 		LOGGER.info("{}: Closed connection!", dcName);
@@ -52,7 +50,8 @@ public class AppUtil {
 		session.execute(SchemaBuilder.createTable(LATENCY_TABLE).ifNotExists().withPartitionKey("id", DataTypes.INT)
 				.withClusteringColumn("key", DataTypes.INT).withColumn("value", DataTypes.TEXT)
 				.withColumn("description", DataTypes.TEXT).build());
-		LOGGER.info("{}: Table '{}' has been created (if not exists).", dcName, LATENCY_TABLE);
+		session.execute(QueryBuilder.truncate(LATENCY_TABLE).build());
+		LOGGER.info("{}: Table '{}' has been created (if not exists) OR truncated (if exists).", dcName, LATENCY_TABLE);
 	}
 
 }
