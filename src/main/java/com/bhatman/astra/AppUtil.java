@@ -16,17 +16,12 @@ import com.datastax.oss.driver.api.querybuilder.SchemaBuilder;
 public class AppUtil {
 	private static Logger LOGGER = LoggerFactory.getLogger(AppUtil.class);
 
-
-	private static final String CLIENT_ID = "xxx";
-	private static final String SECRET = "yyy";
-
 	public static final String KEYSPACE_NAME = "test_ks";
 	public static final String LATENCY_TABLE = "LATENCY_CHECK";
-	
-	
-	public static CqlSession getCQLSession(String scbPath) {
+
+	public static CqlSession getCQLSession(String scbPath, String clientId, String clientSecret) {
 		CqlSession cqlSession = CqlSession.builder().withCloudSecureConnectBundle(Paths.get(scbPath))
-				.withAuthCredentials(CLIENT_ID, SECRET).withKeyspace(KEYSPACE_NAME).build();
+				.withAuthCredentials(clientId, clientSecret).withKeyspace(KEYSPACE_NAME).build();
 
 		return cqlSession;
 	}

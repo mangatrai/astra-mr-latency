@@ -26,6 +26,8 @@ public class App {
 
 	private static final String SCB_ORIGIN = "/path/to/scb/scb-origin.zip";
 	private static final String SCB_TARGET = "/path/to/scb/scb-target.zip";
+	private static final String CLIENT_ID = "some-id";
+	private static final String SECRET = "some-secret";
 
 	private static final int NUM_OF_ROWS = 1000;
 	private static PreparedStatement stmtInsertRecord;
@@ -37,9 +39,9 @@ public class App {
 	private PreparedStatement findRecords;
 	DriverExecutionProfile dynamicProfile;
 
-	public App(String scbPath, DefaultConsistencyLevel consistencyLevel) {
+	public App(String scbPath, String clientId, String clientSecret, DefaultConsistencyLevel consistencyLevel) {
 		super();
-		session = AppUtil.getCQLSession(scbPath);
+		session = AppUtil.getCQLSession(scbPath, clientId, clientSecret);
 		dcName = AppUtil.getDCName(session);
 		LOGGER.info("{}: Connected!", dcName);
 		AppUtil.createLatencyTableIfNotExists(session, dcName);
@@ -52,49 +54,60 @@ public class App {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
-		performLatencyCheck(DefaultConsistencyLevel.EACH_QUORUM);
-		performLatencyCheck(DefaultConsistencyLevel.LOCAL_QUORUM);
+		performLatencyCheck(SCB_ORIGIN, SCB_TARGET, CLIENT_ID, SECRET, DefaultConsistencyLevel.EACH_QUORUM);
+		performLatencyCheck(SCB_ORIGIN, SCB_TARGET, CLIENT_ID, SECRET, DefaultConsistencyLevel.LOCAL_QUORUM);
 	}
 
-	public static void performLatencyCheck(DefaultConsistencyLevel consistencyLevel) throws InterruptedException {
+	public static void performLatencyCheck(String scbPathOrigin, String scbPathTarget, String clientId,
+			String clientSecret, DefaultConsistencyLevel consistencyLevel) throws InterruptedException {
 		LOGGER.info(
-				"====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ======================",
+				"=============== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ===============",
 				consistencyLevel);
-		App originApp = new App(SCB_ORIGIN, consistencyLevel);
+		App originApp = new App(scbPathOrigin, clientId, clientSecret, consistencyLevel);
 		Map<Integer, Long> originRecordTimestamp = new HashMap<>();
 
-		App targetApp = new App(SCB_TARGET, consistencyLevel);
+		App targetApp = new App(scbPathTarget, clientId, clientSecret, consistencyLevel);
 		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
 
 		long testStartTime = Calendar.getInstance().getTimeInMillis();
 		LOGGER.info("Test Started at: {}", testStartTime);
 		originApp.writeRecordsAsync(NUM_OF_ROWS);
 
-
 		originApp.readRecordsAsync(NUM_OF_ROWS, originRecordTimestamp, 0, testStartTime);
 		targetApp.readRecordsAsync(NUM_OF_ROWS, targetRecordTimestamp, 0, testStartTime);
 
-		while (!targetRecordTimestamp.containsKey(NUM_OF_ROWS-1)) {
-			TimeUnit.MILLISECONDS.sleep(50);
-			LOGGER.trace("Waiting for MR Latency check to complete...");
-		}
-		TimeUnit.MILLISECONDS.sleep(50); // Sometimes the HashMap is not fully loaded resulting in NPE
+		waitForCompletion(targetRecordTimestamp);
+		long testEndTime = Calendar.getInstance().getTimeInMillis();
 
+		final Long totLatency = computeLatency(originApp, originRecordTimestamp, targetApp, targetRecordTimestamp);
+		LOGGER.info(
+				"===== {} row test at ConsistencyLevel {} took {}ms. Avg. latency between regions was {}ms =====",
+				NUM_OF_ROWS, consistencyLevel, (testEndTime - testStartTime), (totLatency / NUM_OF_ROWS));
+
+		AppUtil.closeSession(originApp.session, originApp.dcName);
+		AppUtil.closeSession(targetApp.session, targetApp.dcName);
+	}
+
+	private static Long computeLatency(App originApp, Map<Integer, Long> originRecordTimestamp, App targetApp,
+			Map<Integer, Long> targetRecordTimestamp) {
 		final Long totLatency = originRecordTimestamp.entrySet().stream().map(es -> {
 			Integer key = es.getKey();
 			Long val = es.getValue();
 			long targetVal = targetRecordTimestamp.get(key);
 			long observedLatency = targetVal - val;
-			LOGGER.trace("Found key {}: in regions {}:{} at timestamps {}:{} with observed latency: {}", key, originApp.dcName,
-					targetApp.dcName, val, targetVal, observedLatency);
+			LOGGER.trace("Found key {}: in regions {}:{} at timestamps {}:{} with observed latency: {}", key,
+					originApp.dcName, targetApp.dcName, val, targetVal, observedLatency);
 			return observedLatency;
 		}).reduce(0l, Long::sum);
-		AppUtil.closeSession(originApp.session, originApp.dcName);
-		AppUtil.closeSession(targetApp.session, targetApp.dcName);
+		return totLatency;
+	}
 
-		LOGGER.info(
-				"=================== Total Latency: {}, AVG Latency: {}, Rowcount: {}, ConsistencyLevel: {} =========================== ",
-				totLatency, (totLatency / NUM_OF_ROWS), NUM_OF_ROWS, consistencyLevel);
+	private static void waitForCompletion(Map<Integer, Long> targetRecordTimestamp) throws InterruptedException {
+		while (targetRecordTimestamp.keySet().size() != NUM_OF_ROWS) {
+			TimeUnit.MILLISECONDS.sleep(10);
+			LOGGER.trace("Waiting for MR Latency check to complete...");
+		}
+		//TimeUnit.MILLISECONDS.sleep(100); // Buffer time as HashMap may not be fully loaded resulting in NPE
 	}
 
 	private void writeRecordsAsync(int i) {
