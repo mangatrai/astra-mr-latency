@@ -24,11 +24,6 @@ public class App {
 
 	private static Logger LOGGER = LoggerFactory.getLogger(App.class);
 
-	private static final String SCB_ORIGIN = "/path/to/scb/scb-origin.zip";
-	private static final String SCB_TARGET = "/path/to/scb/scb-target.zip";
-	private static final String CLIENT_ID = "some-id";
-	private static final String SECRET = "some-secret";
-
 	private static final int NUM_OF_ROWS = 1000;
 	private static PreparedStatement stmtInsertRecord;
 	private static Select select = QueryBuilder.selectFrom(AppUtil.LATENCY_TABLE).column("key").whereColumn("id")
@@ -54,8 +49,12 @@ public class App {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
-		performLatencyCheck(SCB_ORIGIN, SCB_TARGET, CLIENT_ID, SECRET, DefaultConsistencyLevel.EACH_QUORUM);
-		performLatencyCheck(SCB_ORIGIN, SCB_TARGET, CLIENT_ID, SECRET, DefaultConsistencyLevel.LOCAL_QUORUM);
+		if (args.length < 4) {
+			LOGGER.error("Not all input args received. Please provide these four args: SCB-Origin-Path, SCB-Target-Path, Client-Id, Client-Secret");
+			System.exit(-1);
+		}
+		performLatencyCheck(args[0], args[1], args[2], args[3], DefaultConsistencyLevel.EACH_QUORUM);
+		performLatencyCheck(args[0], args[1], args[2], args[3], DefaultConsistencyLevel.LOCAL_QUORUM);
 	}
 
 	public static void performLatencyCheck(String scbPathOrigin, String scbPathTarget, String clientId,

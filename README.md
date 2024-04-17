@@ -14,10 +14,10 @@ This app will report the below two latencies for Multi-Region (MR) Apps deployed
 4. The fat jar (`astra-mr-latency-*-jar-with-dependencies.jar`) file should now be present in the `target` folder
 
 ## Running the App
-- Add secure-connect-bundle (SCB) details for the two Astra regions
+- Get the path details of secure-connect-bundle (SCB) for the two Astra regions
 - Provide the Astra Client_ID for the Multi-Region (MR) DB
 - Provide the Astra SECRET for the MR DB
-- Run command `java -jar target/astra-mr-latency-1.0.1-jar-with-dependencies.jar`
+- Run command `java -jar target/astra-mr-latency-1.0.1-jar-with-dependencies.jar "path-to-scb-region-1" "path-to-scb-region-2" "client-id" "client-secret"`
 
 ## Sample Output
 ```
