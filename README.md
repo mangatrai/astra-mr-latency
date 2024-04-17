@@ -1,5 +1,7 @@
 # astra-mr-latency
-App to help check latencies between AstraDB regions (for Multi-Region (MR) Apps deployed on Astra)
+This app will report the below two latencies for Multi-Region (MR) Apps deployed on Astra
+- Latency between the two regions
+- Latencies for CL EACH_QUORUM and LOCAL_QUORUM
 
 ## Prerequisite
 - **Java11** (minimum) or higher
@@ -19,43 +21,43 @@ App to help check latencies between AstraDB regions (for Multi-Region (MR) Apps 
 
 ## Sample Output
 ```
-11:21:08.297 INFO  com.bhatman.astra.App    : ====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: EACH_QUORUM ======================
-11:21:10.606 INFO  com.bhatman.astra.App    : us-east-1: Connected!
-11:21:11.119 INFO  com.bhatman.astra.AppUtil: us-east-1: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
-11:21:14.685 INFO  com.bhatman.astra.App    : us-west-2: Connected!
-11:21:15.065 INFO  com.bhatman.astra.AppUtil: us-west-2: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
-11:21:15.518 INFO  com.bhatman.astra.App    : Test Started at: 1711552875518
-11:21:15.610 INFO  com.bhatman.astra.App    : us-east-1: Looking for rows...
-11:21:15.611 INFO  com.bhatman.astra.App    : us-west-2: Looking for rows...
-11:21:15.719 INFO  com.bhatman.astra.App    : us-west-2: Found 265 rows!
-11:21:15.719 INFO  com.bhatman.astra.App    : us-west-2: Looking for rows...
-11:21:15.727 INFO  com.bhatman.astra.App    : us-east-1: Found 666 rows!
-11:21:15.728 INFO  com.bhatman.astra.App    : us-east-1: Looking for rows...
-11:21:15.814 INFO  com.bhatman.astra.App    : us-west-2: Found 516 rows!
-11:21:15.815 INFO  com.bhatman.astra.App    : us-west-2: Looking for rows...
-11:21:15.834 INFO  com.bhatman.astra.App    : us-east-1: Found 1000 rows!
-11:21:15.834 INFO  com.bhatman.astra.App    : us-east-1: Test completed in: 316ms
-11:21:15.915 INFO  com.bhatman.astra.App    : us-west-2: Found 1000 rows!
-11:21:15.915 INFO  com.bhatman.astra.App    : us-west-2: Test completed in: 397ms
-11:21:18.034 INFO  com.bhatman.astra.AppUtil: us-east-1: Closed connection!
-11:21:20.109 INFO  com.bhatman.astra.AppUtil: us-west-2: Closed connection!
-11:21:20.109 INFO  com.bhatman.astra.App    : =================== Total Latency: 77993, AVG Latency: 77, Rowcount: 1000, ConsistencyLevel: EACH_QUORUM ===========================
-11:21:20.110 INFO  com.bhatman.astra.App    : ====================== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: LOCAL_QUORUM ======================
-11:21:21.206 INFO  com.bhatman.astra.App    : us-east-1: Connected!
-11:21:21.759 INFO  com.bhatman.astra.AppUtil: us-east-1: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
-11:21:25.182 INFO  com.bhatman.astra.App    : us-west-2: Connected!
-11:21:25.556 INFO  com.bhatman.astra.AppUtil: us-west-2: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
-11:21:25.927 INFO  com.bhatman.astra.App    : Test Started at: 1711552885927
-11:21:25.963 INFO  com.bhatman.astra.App    : us-east-1: Looking for rows...
-11:21:25.963 INFO  com.bhatman.astra.App    : us-west-2: Looking for rows...
-11:21:26.051 INFO  com.bhatman.astra.App    : us-east-1: Found 1000 rows!
-11:21:26.051 INFO  com.bhatman.astra.App    : us-east-1: Test completed in: 124ms
-11:21:26.069 INFO  com.bhatman.astra.App    : us-west-2: Found 171 rows!
-11:21:26.069 INFO  com.bhatman.astra.App    : us-west-2: Looking for rows...
-11:21:26.169 INFO  com.bhatman.astra.App    : us-west-2: Found 1000 rows!
-11:21:26.169 INFO  com.bhatman.astra.App    : us-west-2: Test completed in: 242ms
-11:21:28.332 INFO  com.bhatman.astra.AppUtil: us-east-1: Closed connection!
-11:21:30.382 INFO  com.bhatman.astra.AppUtil: us-west-2: Closed connection!
-11:21:30.382 INFO  com.bhatman.astra.App    : =================== Total Latency: 101653, AVG Latency: 101, Rowcount: 1000, ConsistencyLevel: LOCAL_QUORUM ===========================
+12:53:56.784 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: =============== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: EACH_QUORUM ===============
+12:53:59.298 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Connected!
+12:53:59.832 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-east-1: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
+12:54:03.343 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Connected!
+12:54:03.716 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-west-2: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
+12:54:04.059 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: Test Started at: 1713372844058
+12:54:04.142 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Looking for rows...
+12:54:04.143 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Looking for rows...
+12:54:04.242 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Found 207 rows!
+12:54:04.242 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Looking for rows...
+12:54:04.300 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Found 594 rows!
+12:54:04.300 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Looking for rows...
+12:54:04.333 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Found 352 rows!
+12:54:04.333 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Looking for rows...
+12:54:04.372 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Found 1000 rows!
+12:54:04.372 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Test completed in: 314ms
+12:54:04.438 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Found 1000 rows!
+12:54:04.438 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Test completed in: 380ms
+12:54:04.443 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: ===== 1000 row test at ConsistencyLevel EACH_QUORUM took 383ms. Avg. latency between regions was 53ms =====
+12:54:06.528 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-east-1: Closed connection!
+12:54:08.600 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-west-2: Closed connection!
+12:54:08.600 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: =============== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: LOCAL_QUORUM ===============
+12:54:09.536 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Connected!
+12:54:11.317 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-east-1: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
+12:54:14.476 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Connected!
+12:54:14.939 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-west-2: Table 'LATENCY_CHECK' has been created (if not exists) OR truncated (if exists).
+12:54:15.275 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: Test Started at: 1713372855275
+12:54:15.307 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Looking for rows...
+12:54:15.307 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Looking for rows...
+12:54:15.352 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Found 1000 rows!
+12:54:15.352 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-east-1: Test completed in: 77ms
+12:54:15.398 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Found 266 rows!
+12:54:15.398 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Looking for rows...
+12:54:15.515 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Found 1000 rows!
+12:54:15.515 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: us-west-2: Test completed in: 240ms
+12:54:15.517 [35mINFO [0;39m [36mcom.bhatman.astra.App    [0;39m: ===== 1000 row test at ConsistencyLevel LOCAL_QUORUM took 242ms. Avg. latency between regions was 133ms =====
+12:54:17.575 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-east-1: Closed connection!
+12:54:19.628 [35mINFO [0;39m [36mcom.bhatman.astra.AppUtil[0;39m: us-west-2: Closed connection!
 ```
 
