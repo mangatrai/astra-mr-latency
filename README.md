@@ -4,7 +4,7 @@ This app will report the below two latencies for Multi-Region (MR) Apps deployed
 - Latencies for CL EACH_QUORUM and LOCAL_QUORUM
 
 You can find more details about Astra's multi-region capabilities [here](https://www.datastax.com/blog/enhanced-multi-region-database-consistency-astra-db)
-![Astra Multi-Region Consistency](./mr-consistency.jpg?raw=true)
+![Astra Multi-Region Consistency](./mr-consistency.png?raw=true)
 
 ## Prerequisite
 - **Java11** (minimum) or higher
