@@ -30,7 +30,7 @@ public class AppUtil {
 		if (session != null) {
 			session.close();
 		}
-		LOGGER.info("{}: Closed connection!", dcName);
+		LOGGER.debug("{}: Closed connection!", dcName);
 	}
 
 	public static String getDCName(CqlSession session) {
@@ -38,7 +38,9 @@ public class AppUtil {
 		ResultSet rs = session.execute(findDC.bind());
 		Row record = rs.one();
 
-		return (null != record) ? record.getString("data_center") : "";
+		String dcName = (null != record) ? record.getString("data_center") : "";
+		LOGGER.debug("{}: Connected!", dcName);
+		return dcName;
 	}
 
 	public static void createLatencyTableIfNotExists(CqlSession session, String dcName) {

@@ -38,7 +38,6 @@ public class App {
 		super();
 		session = AppUtil.getCQLSession(scbPath, clientId, clientSecret);
 		dcName = AppUtil.getDCName(session);
-		LOGGER.info("{}: Connected!", dcName);
 		AppUtil.createLatencyTableIfNotExists(session, dcName);
 		stmtInsertRecord = session.prepare(QueryBuilder.insertInto(AppUtil.LATENCY_TABLE)
 				.value("id", QueryBuilder.bindMarker()).value("key", QueryBuilder.bindMarker())
@@ -118,7 +117,7 @@ public class App {
 
 	private CompletionStage<AsyncResultSet> readRecordsAsync(int count, Map<Integer, Long> recordTimestamp,
 			int rowCount, long testStartTime) {
-		LOGGER.info("{}: Looking for rows...", dcName);
+		LOGGER.debug("{}: Looking for rows...", dcName);
 		CompletionStage<AsyncResultSet> respFuture = session
 				.executeAsync(findRecords.bind(1).setExecutionProfile(dynamicProfile));
 		return respFuture.whenCompleteAsync((nrs, err) -> {
