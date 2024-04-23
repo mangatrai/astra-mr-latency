@@ -1,7 +1,12 @@
 # astra-mr-latency
-This app will report the below two latencies for Multi-Region (MR) Apps deployed on Astra
-- Latency between the two regions
-- Latencies for CL EACH_QUORUM and LOCAL_QUORUM
+This app can be used to verify approximate latencies to replicate data between two (or more) regions of a single multi-region Astra DB. Latencies are reported at consistency levels EACH_QUORUM and LOCAL_QUORUM.
+
+The app performs below sets of operations in parallel (async) to compute replication latecies
+- Inserts a sample amount of records (default 1000) in the primary region & captures start-time
+- Reads all the inserted records from primary region along with timestamp
+- Reads all the inserted records from secondary region along with timestamp
+
+Note: Actual replication latency will be usually a bit less then the one reported by the app, as there will be some delay between when the data appears in a region to when the app reads it. Also note that these are replication latencies between regions and not latency between the Client (your app) and Server (Astra DB).
 
 You can find more details about Astra's multi-region capabilities [here](https://www.datastax.com/blog/enhanced-multi-region-database-consistency-astra-db)
 ![Astra Multi-Region Consistency](./mr-consistency.png?raw=true)
@@ -21,6 +26,7 @@ You can find more details about Astra's multi-region capabilities [here](https:/
 - Provide the Astra Client_ID for the Multi-Region (MR) DB
 - Provide the Astra SECRET for the MR DB
 - Run command `java -jar target/astra-mr-latency-1.0.1-jar-with-dependencies.jar "path-to-scb-region-1" "path-to-scb-region-2" "client-id" "client-secret"`
+	- Optionally you can also pass the `number-of-records (default is 1000)` to insert. Note: Do not pass a value over 1K if this is not an enterprise DB that allows higher OPS/rate-limits.
 
 ## Sample Output
 ```

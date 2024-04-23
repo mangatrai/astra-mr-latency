@@ -24,7 +24,6 @@ public class App {
 
 	private static Logger LOGGER = LoggerFactory.getLogger(App.class);
 
-	private static final int NUM_OF_ROWS = 1000;
 	private static PreparedStatement stmtInsertRecord;
 	private static Select select = QueryBuilder.selectFrom(AppUtil.LATENCY_TABLE).column("key").whereColumn("id")
 			.isEqualTo(QueryBuilder.bindMarker());
@@ -33,8 +32,10 @@ public class App {
 	public String dcName;
 	private PreparedStatement findRecords;
 	DriverExecutionProfile dynamicProfile;
+	private int numOfRows;
 
-	public App(String scbPath, String clientId, String clientSecret, DefaultConsistencyLevel consistencyLevel) {
+	public App(String scbPath, String clientId, String clientSecret, DefaultConsistencyLevel consistencyLevel,
+			int numOfRows) {
 		super();
 		session = AppUtil.getCQLSession(scbPath, clientId, clientSecret);
 		dcName = AppUtil.getDCName(session);
@@ -45,42 +46,46 @@ public class App {
 		findRecords = session.prepare(select.build());
 		DriverExecutionProfile defaultProfile = session.getContext().getConfig().getDefaultProfile();
 		dynamicProfile = defaultProfile.withString(DefaultDriverOption.REQUEST_CONSISTENCY, consistencyLevel.name());
+		this.numOfRows = numOfRows;
 	}
 
 	public static void main(String[] args) throws InterruptedException {
 		if (args.length < 4) {
-			LOGGER.error("Not all input args received. Please provide these four args: SCB-Origin-Path, SCB-Target-Path, Client-Id, Client-Secret");
+			LOGGER.error(
+					"Not all input args received. Please provide these four args: SCB-Origin-Path, SCB-Target-Path, Client-Id, Client-Secret");
 			System.exit(-1);
 		}
-		performLatencyCheck(args[0], args[1], args[2], args[3], DefaultConsistencyLevel.EACH_QUORUM);
-		performLatencyCheck(args[0], args[1], args[2], args[3], DefaultConsistencyLevel.LOCAL_QUORUM);
+		int numOfRows = 1000; // Default
+		if (args.length == 5) {
+			numOfRows = Integer.parseInt(args[4]);
+		}
+		performLatencyCheck(args[0], args[1], args[2], args[3], DefaultConsistencyLevel.EACH_QUORUM, numOfRows);
+		performLatencyCheck(args[0], args[1], args[2], args[3], DefaultConsistencyLevel.LOCAL_QUORUM, numOfRows);
 	}
 
 	public static void performLatencyCheck(String scbPathOrigin, String scbPathTarget, String clientId,
-			String clientSecret, DefaultConsistencyLevel consistencyLevel) throws InterruptedException {
-		LOGGER.info(
-				"=============== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ===============",
+			String clientSecret, DefaultConsistencyLevel consistencyLevel, int numOfRows) throws InterruptedException {
+		LOGGER.info("=============== PERFORMING MULTI-REGION LATENCY CHEACK WITH CONSISTENCY-LEVEL: {} ===============",
 				consistencyLevel);
-		App originApp = new App(scbPathOrigin, clientId, clientSecret, consistencyLevel);
+		App originApp = new App(scbPathOrigin, clientId, clientSecret, consistencyLevel, numOfRows);
 		Map<Integer, Long> originRecordTimestamp = new HashMap<>();
 
-		App targetApp = new App(scbPathTarget, clientId, clientSecret, consistencyLevel);
+		App targetApp = new App(scbPathTarget, clientId, clientSecret, consistencyLevel, numOfRows);
 		Map<Integer, Long> targetRecordTimestamp = new HashMap<>();
 
 		long testStartTime = Calendar.getInstance().getTimeInMillis();
 		LOGGER.info("Test Started at: {}", testStartTime);
-		originApp.writeRecordsAsync(NUM_OF_ROWS);
+		originApp.writeRecordsAsync();
 
-		originApp.readRecordsAsync(NUM_OF_ROWS, originRecordTimestamp, 0, testStartTime);
-		targetApp.readRecordsAsync(NUM_OF_ROWS, targetRecordTimestamp, 0, testStartTime);
+		originApp.readRecordsAsync(originRecordTimestamp, 0, testStartTime);
+		targetApp.readRecordsAsync(targetRecordTimestamp, 0, testStartTime);
 
-		waitForCompletion(targetRecordTimestamp);
+		waitForCompletion(numOfRows, targetRecordTimestamp);
 		long testEndTime = Calendar.getInstance().getTimeInMillis();
 
 		final Long totLatency = computeLatency(originApp, originRecordTimestamp, targetApp, targetRecordTimestamp);
-		LOGGER.info(
-				"===== {} row test at ConsistencyLevel {} took {}ms. Avg. latency between regions was {}ms =====",
-				NUM_OF_ROWS, consistencyLevel, (testEndTime - testStartTime), (totLatency / NUM_OF_ROWS));
+		LOGGER.info("===== {} row test at ConsistencyLevel {} took {}ms. Avg. latency between regions was {}ms =====",
+				numOfRows, consistencyLevel, (testEndTime - testStartTime), (totLatency / numOfRows));
 
 		AppUtil.closeSession(originApp.session, originApp.dcName);
 		AppUtil.closeSession(targetApp.session, targetApp.dcName);
@@ -100,30 +105,32 @@ public class App {
 		return totLatency;
 	}
 
-	private static void waitForCompletion(Map<Integer, Long> targetRecordTimestamp) throws InterruptedException {
-		while (targetRecordTimestamp.keySet().size() != NUM_OF_ROWS) {
+	private static void waitForCompletion(int numOfRows, Map<Integer, Long> targetRecordTimestamp)
+			throws InterruptedException {
+		while (targetRecordTimestamp.keySet().size() != numOfRows) {
 			TimeUnit.MILLISECONDS.sleep(10);
 			LOGGER.trace("Waiting for MR Latency check to complete...");
 		}
-		//TimeUnit.MILLISECONDS.sleep(100); // Buffer time as HashMap may not be fully loaded resulting in NPE
+		// TimeUnit.MILLISECONDS.sleep(100); // Buffer time as HashMap may not be fully
+		// loaded resulting in NPE
 	}
 
-	private void writeRecordsAsync(int i) {
-		IntStream.range(0, i).forEach(idx -> {
+	private void writeRecordsAsync() {
+		IntStream.range(0, numOfRows).forEach(idx -> {
 			session.executeAsync(stmtInsertRecord.bind(1, idx, "Row: " + idx, "This is a multi-region latency check!")
 					.setExecutionProfile(dynamicProfile));
 		});
 	}
 
-	private CompletionStage<AsyncResultSet> readRecordsAsync(int count, Map<Integer, Long> recordTimestamp,
-			int rowCount, long testStartTime) {
+	private CompletionStage<AsyncResultSet> readRecordsAsync(Map<Integer, Long> recordTimestamp, int rowCount,
+			long testStartTime) {
 		LOGGER.debug("{}: Looking for rows...", dcName);
 		CompletionStage<AsyncResultSet> respFuture = session
 				.executeAsync(findRecords.bind(1).setExecutionProfile(dynamicProfile));
 		return respFuture.whenCompleteAsync((nrs, err) -> {
 			int newRowCount = processRows(nrs, err, rowCount, recordTimestamp);
-			if (newRowCount < count) {
-				readRecordsAsync(count, recordTimestamp, newRowCount, testStartTime);
+			if (newRowCount < numOfRows) {
+				readRecordsAsync(recordTimestamp, newRowCount, testStartTime);
 			} else {
 				LOGGER.info("{}: Test completed in: {}ms", dcName,
 						(Calendar.getInstance().getTimeInMillis() - testStartTime));
