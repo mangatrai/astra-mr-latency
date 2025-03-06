@@ -16,8 +16,8 @@ import com.datastax.oss.driver.api.querybuilder.SchemaBuilder;
 public class AppUtil {
 	private static Logger LOGGER = LoggerFactory.getLogger(AppUtil.class);
 
-	public static final String KEYSPACE_NAME = "test_ks";
-	public static final String LATENCY_TABLE = "LATENCY_CHECK";
+	public static final String KEYSPACE_NAME = "audit";
+	public static final String LATENCY_TABLE = "auditing_events";
 
 	public static CqlSession getCQLSession(String scbPath, String clientId, String clientSecret) {
 		CqlSession cqlSession = CqlSession.builder().withCloudSecureConnectBundle(Paths.get(scbPath))
@@ -44,9 +44,14 @@ public class AppUtil {
 	}
 
 	public static void createLatencyTableIfNotExists(CqlSession session, String dcName) {
-		session.execute(SchemaBuilder.createTable(LATENCY_TABLE).ifNotExists().withPartitionKey("id", DataTypes.INT)
-				.withClusteringColumn("key", DataTypes.INT).withColumn("value", DataTypes.TEXT)
-				.withColumn("description", DataTypes.TEXT).build());
+		session.execute(SchemaBuilder.createTable(LATENCY_TABLE).ifNotExists()
+				.withPartitionKey("event_identifier", DataTypes.TEXT)
+				.withClusteringColumn("event_state", DataTypes.TEXT)
+				.withColumn("event_name", DataTypes.TEXT)
+				.withColumn("event_payload_url", DataTypes.TEXT)
+				.withColumn("event_timestamp", DataTypes.TIMESTAMP)
+				.withColumn("id", DataTypes.UUID)
+				.build());
 		session.execute(QueryBuilder.truncate(LATENCY_TABLE).build());
 		LOGGER.info("{}: Table '{}' has been created (if not exists) OR truncated (if exists).", dcName, LATENCY_TABLE);
 	}
